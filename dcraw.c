@@ -161,7 +161,7 @@ struct decode {
 
 #ifndef __GLIBC__
 char *memmem (char *haystack, size_t haystacklen,
-	      char *needle, size_t needlelen)
+              char *needle, size_t needlelen)
 {
   char *c;
   for (c = haystack; c <= haystack + haystacklen - needlelen; c++)
@@ -296,7 +296,7 @@ unsigned getbits (int nbits)
   return ret;
 }
 
-void init_decoder()
+void init_decoder ()
 {
   memset (first_decode, 0, sizeof first_decode);
   free_decode = first_decode;
@@ -505,7 +505,7 @@ void canon_compressed_load_raw()
   lowbits = canon_has_lowbits();
   shift = 4 - lowbits*2;
   crw_decompress (0, 540 + lowbits*raw_height*raw_width/4);
-  for (row=0; row < raw_height; row+=8) {
+  for (row = 0; row < raw_height; row += 8) {
     crw_decompress (pixel, raw_width/8);	/* Get eight rows */
     if (lowbits) {
       save = ftell(ifp);			/* Don't lose our place */
@@ -523,7 +523,7 @@ void canon_compressed_load_raw()
     for (r=0; r < 8; r++) {
       irow = row - top_margin + r;
       if (irow >= height) continue;
-      for (col=0; col < raw_width; col++) {
+      for (col = 0; col < raw_width; col++) {
 	icol = col - left_margin;
 	if (icol < width)
 	  BAYER(irow,icol) = pixel[r*raw_width+col] << shift;
@@ -532,7 +532,7 @@ void canon_compressed_load_raw()
       }
     }
   }
-  free (pixel);
+  free(pixel);
   if (raw_width > width)
     black = (bblack << shift) / ((raw_width - width) * height);
 }
@@ -583,7 +583,7 @@ void lossless_jpeg_load_raw()
   INT64 bblack=0;
   int min=INT_MAX;
 
-  kodak_curve (curve);
+  kodak_curve(curve);
   order = 0x4d4d;
   if (fget2(ifp) != 0xffd8) return;
   do {
@@ -686,7 +686,7 @@ void nikon_compressed_load_raw()
       if (diff >= csize) diff = csize-1;
       BAYER(row,col-left_margin) = curve[diff] << 2;
     }
-  free (curve);
+  free(curve);
 }
 
 void nikon_load_raw()
@@ -980,7 +980,7 @@ void unpacked_load_raw (int order, int rsh)
     for (col=0; col < width; col++)
       BAYER(row,col) = pixel[col] << 8 >> (8+rsh);
   }
-  free (pixel);
+  free(pixel);
 }
 
 void be_16_load_raw()		/* "be" = "big-endian" */
@@ -1068,7 +1068,7 @@ void nucore_load_raw()
     for (dp=data, col=0; col < width; col++, dp+=2)
       BAYER(row,col) = (dp[0] << 2) + (dp[1] << 10);
   }
-  free (data);
+  free(data);
 }
 
 const int *make_decoder_int (const int *source, int level)
@@ -1318,7 +1318,7 @@ void kodak_easy_load_raw()
     black = ((INT64) black << 2) / ((raw_width - width) * height);
   if (!strncmp(model,"DC2",3))
     black = 0;
-  free (pixel);
+  free(pixel);
 }
 
 void kodak_compressed_load_raw()
@@ -1821,8 +1821,8 @@ void foveon_interpolate()
       }
     }
   }
-  free (shrink);
-  free (smrow[6]);
+  free(shrink);
+  free(smrow[6]);
 }
 
 /*
@@ -2131,7 +2131,7 @@ void vng_interpolate()
   }
   memcpy (image[(row-2)*width+2], brow[0]+2, (width-4)*sizeof *image);
   memcpy (image[(row-1)*width+2], brow[1]+2, (width-4)*sizeof *image);
-  free (brow[4]);
+  free(brow[4]);
 }
 
 void tiff_parse_subifd(int base)
@@ -2377,7 +2377,7 @@ void parse_tiff(int base)
 
   if (make[0] == 0 && wide == 680 && high == 680) {
     strcpy (make, "Imacon");
-    strcpy (model,"Ixpress");
+    strcpy (model, "Ixpress");
   }
 }
 
@@ -2422,7 +2422,7 @@ void parse_ciff(int offset, int length)
   tboff = fget4(ifp) + offset;
   fseek (ifp, tboff, SEEK_SET);
   nrecs = fget2(ifp);
-  for (i=0; i < nrecs; i++) {
+  for (i = 0; i < nrecs; i++) {
     type = fget2(ifp);
     len  = fget4(ifp);
     roff = fget4(ifp);
@@ -2469,7 +2469,7 @@ common:
 	camera_blue /= fget2(ifp);
       } else {
 	fseek (ifp, aoff+80 + (wbi < 6 ? remap[wbi]*8 : 0), SEEK_SET);
-	if (!camera_red)
+        if (!camera_red)
 	  goto common;
       }
     }
@@ -2532,7 +2532,7 @@ void parse_rollei()
   } while (strncmp(line,"EOHD",4));
   data_offset += tx * ty * 2;
   strcpy (make, "Rollei");
-  strcpy (model,"d530flex");
+  strcpy (model, "d530flex");
 }
 
 void parse_foveon()
@@ -2565,7 +2565,7 @@ void parse_foveon()
   fseek (ifp, 248, SEEK_SET);
   raw_width  = fget4(ifp);
   raw_height = fget4(ifp);
-  free (buf);
+  free(buf);
 }
 
 void foveon_coeff()
@@ -2721,12 +2721,12 @@ int identify()
     fseek (ifp, 12, SEEK_CUR);
     raw_height = fget4(ifp);
   } else if (order == 0x4949 || order == 0x4d4d) {
-    if (!memcmp (head+6,"HEAPCCDR",8)) {
+    if (!memcmp (head+6, "HEAPCCDR", 8)) {
       data_offset = hlen;
       parse_ciff (hlen, fsize - hlen);
     } else
       parse_tiff(0);
-  } else if (!memcmp (head,"\0MRM",4)) {
+  } else if (!memcmp (head, "\0MRM", 4)) {
     parse_tiff(48);
     fseek (ifp, 4, SEEK_SET);
     data_offset = fget4(ifp) + 8;
@@ -2740,7 +2740,7 @@ int identify()
     camera_red /= fget2(ifp);
     camera_blue = fget2(ifp);
     camera_blue = fget2(ifp) / camera_blue;
-  } else if (!memcmp (head,"BM",2)) {
+  } else if (!memcmp (head, "BM", 2)) {
     data_offset = 0x1000;
     order = 0x4949;
     fseek (ifp, 38, SEEK_SET);
@@ -2748,7 +2748,7 @@ int identify()
       strcpy (model, "BMQ");
       goto nucore;
     }
-  } else if (!memcmp (head,"BR",2)) {
+  } else if (!memcmp (head, "BR", 2)) {
     strcpy (model, "RAW");
 nucore:
     strcpy (make, "Nucore");
@@ -2762,18 +2762,18 @@ nucore:
       raw_width++;
       data_offset -= 0x1000;
     }
-  } else if (!memcmp (head+25,"ARECOYK",7)) {
+  } else if (!memcmp (head+25, "ARECOYK", 7)) {
     strcpy (make, "CONTAX");
-    strcpy (model,"N DIGITAL");
-  } else if (!memcmp (head,"FUJIFILM",8)) {
+    strcpy (model, "N DIGITAL");
+  } else if (!memcmp (head, "FUJIFILM", 8)) {
     fseek (ifp, 84, SEEK_SET);
     parse_tiff (fget4(ifp)+12);
     order = 0x4d4d;
     fseek (ifp, 100, SEEK_SET);
     data_offset = fget4(ifp);
-  } else if (!memcmp (head,"DSC-Image",9))
+  } else if (!memcmp (head, "DSC-Image", 9))
     parse_rollei();
-  else if (!memcmp (head,"FOVb",4))
+  else if (!memcmp (head, "FOVb", 4))
     parse_foveon();
   else
     for (i=0; i < sizeof table / sizeof *table; i++)
@@ -2824,7 +2824,7 @@ nucore:
 /*  We'll try to decode anything from Canon or Nikon. */
 
   if ((is_canon = !strcmp(make,"Canon"))) {
-    if (memcmp (head+6,"HEAPCCDR",8)) {
+    if (memcmp (head+6, "HEAPCCDR", 8)) {
       filters = 0x61616161;
       load_raw = lossless_jpeg_load_raw;
     } else
@@ -3620,7 +3620,7 @@ void write_ppm(FILE *ofp)
     for (i=0; i < ymag; i++)
       fwrite (ppm, width-trim*2, 3, ofp);
   }
-  free (ppm);
+  free(ppm);
 }
 
 /*
@@ -3667,7 +3667,7 @@ void write_psd(FILE *ofp)
     }
   }
   fwrite(buffer, psize, 6, ofp);
-  free (buffer);
+  free(buffer);
 }
 
 /*
@@ -3701,7 +3701,7 @@ void write_ppm16(FILE *ofp)
     }
     fwrite (ppm, width-trim*2, 6, ofp);
   }
-  free (ppm);
+  free(ppm);
 }
 
 int main(int argc, char **argv)
@@ -3782,7 +3782,7 @@ int main(int argc, char **argv)
     }
 #if defined(WIN32) || defined(DJGPP)
     if (setmode(1,O_BINARY) < 0) {
-      perror ("setmode()");
+      perror("setmode()");
       return 1;
     }
 #endif
@@ -3795,7 +3795,7 @@ int main(int argc, char **argv)
     if (setjmp (failure)) {
       if (fileno(ifp) > 2) fclose(ifp);
       if (fileno(ofp) > 2) fclose(ofp);
-      if (image) free (image);
+      if (image) free(image);
       status = 1;
       continue;
     }
@@ -3856,7 +3856,7 @@ int main(int argc, char **argv)
       ofp = fopen (ofname, "wb");
       if (!ofp) {
 	status = 1;
-	perror (ofname);
+	perror(ofname);
 	goto cleanup;
       }
     }
@@ -3866,8 +3866,8 @@ int main(int argc, char **argv)
     if (ofp != stdout)
       fclose(ofp);
 cleanup:
-    free (ofname);
-    free (image);
+    free(ofname);
+    free(image);
   }
   return status;
 }
