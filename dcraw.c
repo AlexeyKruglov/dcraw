@@ -1,5 +1,6 @@
 /*
    dcraw.c -- Dave Coffin's raw photo decoder
+   Copyright 2007 by Alexey Kruglov
    Copyright 1997-2004 by Dave Coffin, dcoffin a cybercom o net
 
    This is a portable ANSI C program to convert raw image files from
@@ -11,9 +12,23 @@
    This code is freely licensed for all uses, commercial and
    otherwise.  Comments, questions, and encouragement are welcome.
 
-   $Revision: 1.195 $
-   $Date: 2004/06/16 17:19:36 $
+   $Revision: 1.195.AK0 $
+   $Date: 2007/07/31 $
+
+   Based on:
+   Revision: 1.195
+   Date: 2004/06/16 17:19:36
  */
+
+/*
+   History
+1.195.AK0  31.07.2007
+   * Fixed exposure handling (autoexposure, saturation, gamma correction, 
+   color spase: sRGB)
+
+   Based on:
+1.195  16.06.2004
+*/
 
 #define _GNU_SOURCE
 #include <ctype.h>
@@ -3569,9 +3584,7 @@ void convert_to_rgb()
       }
 norgb:
       if (write_fun == write_ppm) {
-	for (mag=r=0; r < 3; r++)
-	  mag += (unsigned) img[r]*img[r];
-	mag = sqrt(mag)/2;
+	mag = 0.2126*img[0]+0.7152*img[1]+0.0722*img[2];
 	if (mag > 0xffff)
 	    mag = 0xffff;
 	img[3] = mag;
@@ -3596,23 +3609,25 @@ void write_ppm(FILE *ofp)
   i = width * height * (strcmp(make,"FUJIFILM") ? 0.01 : 0.005);
   for (val=0x2000, total=0; --val; )
     if ((total += histogram[val]) > i) break;
-  max = val << 4;
+  max = val << 3;
 
   fprintf (ofp, "P6\n%d %d\n255\n",
 	width-trim*2, ymag*(height-trim*2));
 
   ppm = calloc (width-trim*2, 3);
   merror (ppm, "write_ppm()");
-  mul = bright * 442 / max;
+  mul = bright * 255 / max;
   scale[0] = 0;
   for (i=1; i < 0x10000; i++)
-    scale[i] = mul * pow (i*2/max, gamma_val-1);
+    /*scale[i] = mul * pow (i/max, gamma_val-1);*/
+    scale[i] = bright * 255 * pow (i/max, gamma_val);
 
   for (row=trim; row < height-trim; row++) {
     for (col=trim; col < width-trim; col++) {
       rgb = image[row*width+col];
       for (c=0; c < 3; c++) {
-	val = rgb[c] * scale[rgb[3]];
+	/*val = rgb[c] * scale[rgb[3]];*/
+	val = (int)scale[rgb[c]];
 	if (val > 255) val=255;
 	ppm[col-trim][c] = val;
       }
