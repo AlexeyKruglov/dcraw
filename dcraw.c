@@ -794,7 +794,7 @@ void CLASS canon_compressed_load_raw()
  */
 struct jhead {
   int bits, high, wide, clrs, psv, restart, vpred[4];
-  struct CLASS decode *huff[4];
+  struct decode *huff[4];
   ushort *row;
 };
 
@@ -1690,7 +1690,7 @@ void CLASS sinar_4shot_load_raw()
       if ((r = row-top_margin - (shot >> 1 & 1)) >= height) continue;
       for (col=0; col < raw_width; col++) {
 	if ((c = col-left_margin - (shot & 1)) >= width) continue;
-	image[r*width+c][FC(row,col)] = pixel[col];
+        image[r*width+c][FC(row,col)] = pixel[col];
       }
     }
   }
@@ -2161,7 +2161,7 @@ void CLASS eight_bit_load_raw()
     for (col=0; col < raw_width; col++) {
       val = curve[pixel[col]];
       if ((unsigned) (col-left_margin) < width)
-	BAYER(row,col-left_margin) = val;
+        BAYER(row,col-left_margin) = val;
       else lblack += val;
     }
   }
@@ -2823,7 +2823,7 @@ void CLASS foveon_interpolate()
 	foveon_camf_param ("IncludeBlocks", "ColorDQ") ?
 		"ColorDQ" : "ColorDQCamRGB");
   if (foveon_camf_param ("IncludeBlocks", "ColumnFilter"))
-		 foveon_fixed (&cfilt, 1, "ColumnFilter");
+  		 foveon_fixed (&cfilt, 1, "ColumnFilter");
 
   memset (ddft, 0, sizeof ddft);
   if (!foveon_camf_param ("IncludeBlocks", "DarkDrift")
@@ -2890,7 +2890,7 @@ void CLASS foveon_interpolate()
       ddft[0][0][i] = ddft[1][0][i] +
 	row / (height-1.0) * (ddft[2][0][i] - ddft[1][0][i]);
     FORC3 black[row][c] =
-	( foveon_avg (image[row*width]+c, dscr[0], cfilt) +
+ 	( foveon_avg (image[row*width]+c, dscr[0], cfilt) +
 	  foveon_avg (image[row*width]+c, dscr[1], cfilt) * 3
 	  - ddft[0][c][0] ) / 4 - ddft[0][c][1];
   }
@@ -3472,7 +3472,7 @@ void CLASS wavelet_denoise()
       lpass = size*((lev & 1)+1);
       for (row=0; row < iheight; row++) {
 	hat_transform (temp, fimg+hpass+row*iwidth, 1, iwidth, 1 << lev);
-	for (col=0; col < iwidth; col++)
+        for (col=0; col < iwidth; col++)
 	  fimg[lpass + row*iwidth + col] = temp[col] * 0.25;
       }
       for (col=0; col < iwidth; col++) {
@@ -3969,7 +3969,7 @@ void CLASS ahd_interpolate()
     for (left=2; left < width-5; left += TS-6) {
 
 /*  Interpolate green horizontally and vertically:		*/
-      for (row=top; row < top+TS && row < height-2; row++) {
+      for (row = top; row < top+TS && row < height-2; row++) {
 	col = left + (FC(row,left) & 1);
 	for (c = FC(row,col); col < left+TS && col < width-2; col+=2) {
 	  pix = image + row*width+col;
@@ -5062,7 +5062,7 @@ void CLASS parse_tiff (int base)
 	  case 14:
 	  case 16: load_raw = &CLASS unpacked_load_raw;		break;
 	}
-	if (tiff_ifd[raw].bytes*5 == raw_width*raw_height*8)
+	if (tiff_ifd[raw].bytes * 5 == raw_width * raw_height * 8)
 	  load_raw = &CLASS olympus_e300_load_raw;
 	if (tiff_bps == 12 && tiff_ifd[raw].phint == 2)
 	  load_raw = &CLASS olympus_cseries_load_raw;
@@ -5178,7 +5178,7 @@ void CLASS parse_external_jpeg()
   } else
     while (isdigit(*--jext)) {
       if (*jext != '9') {
-	(*jext)++;
+        (*jext)++;
 	break;
       }
       *jext = '0';
@@ -5411,7 +5411,7 @@ void CLASS parse_phase_one (int base)
   fseek (ifp, base, SEEK_SET);
   order = get4() & 0xffff;
   if (get4() >> 8 != 0x526177) return;		/* "Raw" */
-  fseek (ifp, get4()+base, SEEK_SET);
+  fseek (ifp, base+get4(), SEEK_SET);
   entries = get4();
   get4();
   while (entries--) {
@@ -6060,7 +6060,7 @@ void CLASS adobe_coeff (char *make, char *model)
     { "SONY DSC-V3", 0,
 	{ 7511,-2571,-692,-7894,15088,3060,-948,1111,8128 } },
     { "SONY DSLR-A100", 0,
-	{ 9437,-2811,-774,-8405,16215,2290,-710,596,7181 } },
+	{ 9437,-2811,-774,-8405,16215,2290,-710,596,7181 } }
   };
   double cam_xyz[4][3];
   char name[130];
@@ -6130,60 +6130,60 @@ void CLASS identify()
     int fsize;
     char make[12], model[19], withjpeg;
   } table[] = {
-    {    62464, "Kodak",    "DC20"            ,0 },
-    {   124928, "Kodak",    "DC20"            ,0 },
-    {  1652736, "Kodak",    "DCS200"          ,0 },
-    {  4159302, "Kodak",    "C330"            ,0 },
-    {  4162462, "Kodak",    "C330"            ,0 },
-    {   311696, "ST Micro", "STV680 VGA"      ,0 },  /* SPYz */
-    {   614400, "Kodak",    "KAI-0340"        ,0 },
-    {   787456, "Creative", "PC-CAM 600"      ,0 },
-    {  1138688, "Minolta",  "RD175"           ,0 },
-    {  3840000, "Foculus",  "531C"            ,0 },
-    {  1447680, "AVT",      "F-145C"          ,0 },
-    {  1920000, "AVT",      "F-201C"          ,0 },
-    {  5067304, "AVT",      "F-510C"          ,0 },
-    { 10134608, "AVT",      "F-510C"          ,0 },
-    { 16157136, "AVT",      "F-810C"          ,0 },
-    {  1409024, "Sony",     "XCD-SX910CR"     ,0 },
-    {  2818048, "Sony",     "XCD-SX910CR"     ,0 },
-    {  3884928, "Micron",   "2010"            ,0 },
-    {  6624000, "Pixelink", "A782"            ,0 },
-    { 13248000, "Pixelink", "A782"            ,0 },
-    {  6291456, "RoverShot","3320AF"          ,0 },
-    {  6573120, "Canon",    "PowerShot A610"  ,0 },
-    {  9219600, "Canon",    "PowerShot A620"  ,0 },
-    { 10383120, "Canon",    "PowerShot A630"  ,0 },
-    { 12945240, "Canon",    "PowerShot A640"  ,0 },
-    {  7710960, "Canon",    "PowerShot S3 IS" ,0 },
-    {  5939200, "OLYMPUS",  "C770UZ"          ,0 },
-    {  1581060, "NIKON",    "E900"            ,1 },  /* or E900s,E910 */
-    {  2465792, "NIKON",    "E950"            ,1 },  /* or E800,E700 */
-    {  2940928, "NIKON",    "E2100"           ,1 },  /* or E2500 */
-    {  4771840, "NIKON",    "E990"            ,1 },  /* or E995, Oly C3030Z */
-    {  4775936, "NIKON",    "E3700"           ,1 },  /* or Optio 33WR */
-    {  5869568, "NIKON",    "E4300"           ,1 },  /* or DiMAGE Z2 */
-    {  5865472, "NIKON",    "E4500"           ,1 },
-    {  7438336, "NIKON",    "E5000"           ,1 },  /* or E5700 */
-    {  1976352, "CASIO",    "QV-2000UX"       ,1 },
-    {  3217760, "CASIO",    "QV-3*00EX"       ,1 },
-    {  6218368, "CASIO",    "QV-5700"         ,1 },
-    {  6054400, "CASIO",    "QV-R41"          ,1 },
-    {  7530816, "CASIO",    "QV-R51"          ,1 },
-    {  7684000, "CASIO",    "QV-4000"         ,1 },
-    {  4948608, "CASIO",    "EX-S100"         ,1 },
-    {  7542528, "CASIO",    "EX-Z50"          ,1 },
-    {  7753344, "CASIO",    "EX-Z55"          ,1 },
-    {  7426656, "CASIO",    "EX-P505"         ,1 },
-    {  9313536, "CASIO",    "EX-P600"         ,1 },
-    { 10979200, "CASIO",    "EX-P700"         ,1 },
-    {  3178560, "PENTAX",   "Optio S"         ,1 },
-    {  4841984, "PENTAX",   "Optio S"         ,1 },
-    {  6114240, "PENTAX",   "Optio S4"        ,1 },  /* or S4i, CASIO EX-Z4 */
-    { 10702848, "PENTAX",   "Optio 750Z"      ,1 },
-    { 12582980, "Sinar",    ""                ,0 },
-    { 33292868, "Sinar",    ""                ,0 },
-    { 44390468, "Sinar",    ""                ,0 } };
+    {    62464, "Kodak",    "DC20"       ,0 },
+    {   124928, "Kodak",    "DC20"       ,0 },
+    {  1652736, "Kodak",    "DCS200"     ,0 },
+    {  4159302, "Kodak",    "C330"       ,0 },
+    {  4162462, "Kodak",    "C330"       ,0 },
+    {   311696, "ST Micro", "STV680 VGA" ,0 },  /* SPYz */
+    {   614400, "Kodak",    "KAI-0340"   ,0 },
+    {   787456, "Creative", "PC-CAM 600" ,0 },
+    {  1138688, "Minolta",  "RD175"      ,0 },
+    {  3840000, "Foculus",  "531C"       ,0 },
+    {  1447680, "AVT",      "F-145C"     ,0 },
+    {  1920000, "AVT",      "F-201C"     ,0 },
+    {  5067304, "AVT",      "F-510C"     ,0 },
+    { 10134608, "AVT",      "F-510C"     ,0 },
+    { 16157136, "AVT",      "F-810C"     ,0 },
+    {  1409024, "Sony",     "XCD-SX910CR",0 },
+    {  2818048, "Sony",     "XCD-SX910CR",0 },
+    {  3884928, "Micron",   "2010"       ,0 },
+    {  6624000, "Pixelink", "A782"       ,0 },
+    { 13248000, "Pixelink", "A782"       ,0 },
+    {  6291456, "RoverShot","3320AF"     ,0 },
+    {  6573120, "Canon",    "PowerShot A610",0 },
+    {  9219600, "Canon",    "PowerShot A620",0 },
+    { 10383120, "Canon",    "PowerShot A630",0 },
+    { 12945240, "Canon",    "PowerShot A640",0 },
+    {  7710960, "Canon",    "PowerShot S3 IS",0 },
+    {  5939200, "OLYMPUS",  "C770UZ"     ,0 },
+    {  1581060, "NIKON",    "E900"       ,1 },  /* or E900s,E910 */
+    {  2465792, "NIKON",    "E950"       ,1 },  /* or E800,E700 */
+    {  2940928, "NIKON",    "E2100"      ,1 },  /* or E2500 */
+    {  4771840, "NIKON",    "E990"       ,1 },  /* or E995, Oly C3030Z */
+    {  4775936, "NIKON",    "E3700"      ,1 },  /* or Optio 33WR */
+    {  5869568, "NIKON",    "E4300"      ,1 },  /* or DiMAGE Z2 */
+    {  5865472, "NIKON",    "E4500"      ,1 },
+    {  7438336, "NIKON",    "E5000"      ,1 },  /* or E5700 */
+    {  1976352, "CASIO",    "QV-2000UX"  ,1 },
+    {  3217760, "CASIO",    "QV-3*00EX"  ,1 },
+    {  6218368, "CASIO",    "QV-5700"    ,1 },
+    {  6054400, "CASIO",    "QV-R41"     ,1 },
+    {  7530816, "CASIO",    "QV-R51"     ,1 },
+    {  7684000, "CASIO",    "QV-4000"    ,1 },
+    {  4948608, "CASIO",    "EX-S100"    ,1 },
+    {  7542528, "CASIO",    "EX-Z50"     ,1 },
+    {  7753344, "CASIO",    "EX-Z55"     ,1 },
+    {  7426656, "CASIO",    "EX-P505"    ,1 },
+    {  9313536, "CASIO",    "EX-P600"    ,1 },
+    { 10979200, "CASIO",    "EX-P700"    ,1 },
+    {  3178560, "PENTAX",   "Optio S"    ,1 },
+    {  4841984, "PENTAX",   "Optio S"    ,1 },
+    {  6114240, "PENTAX",   "Optio S4"   ,1 },  /* or S4i, CASIO EX-Z4 */
+    { 10702848, "PENTAX",   "Optio 750Z" ,1 },
+    { 12582980, "Sinar",    ""           ,0 },
+    { 33292868, "Sinar",    ""           ,0 },
+    { 44390468, "Sinar",    ""           ,0 } };
   static const char *corp[] =
     { "Canon", "NIKON", "EPSON", "KODAK", "Kodak", "OLYMPUS", "PENTAX",
       "MINOLTA", "Minolta", "Konica", "CASIO", "Sinar", "Phase One",
@@ -6812,8 +6812,8 @@ konica_400z:
       model[0] = 0;
     }
   } else if (!strcmp(make,"Hasselblad")) {
-    if (load_raw == &CLASS lossless_jpeg_load_raw)
-      load_raw = &CLASS hasselblad_load_raw;
+    if (load_raw == lossless_jpeg_load_raw)
+      load_raw = hasselblad_load_raw;
   } else if (!strcmp(make,"Sinar")) {
     if (!memcmp(head,"8BPS",4)) {
       fseek (ifp, 14, SEEK_SET);
@@ -7210,7 +7210,7 @@ qt_common:
 dng_skip:
   if (!load_raw || height < 22) is_raw = 0;
 #ifdef NO_JPEG
-  if (load_raw == &CLASS kodak_jpeg_load_raw) {
+  if (load_raw == kodak_jpeg_load_raw) {
     fprintf (stderr,_("%s: You must link dcraw with libjpeg!!\n"), ifname);
     is_raw = 0;
   }
@@ -7357,7 +7357,7 @@ void CLASS convert_to_rgb()
       for (j=0; j < 3; j++) {
 	for (num = k=0; k < 3; k++)
 	  num += xyzd50_srgb[i][k] * inverse[j][k];
-	oprof[pbody[j*3+23]/4+i+2] = num * 0x10000 + 0.5;
+        oprof[pbody[j*3+23]/4+i+2] = num * 0x10000 + 0.5;
       }
     for (i=0; i < phead[0]/4; i++)
       oprof[i] = htonl(oprof[i]);
