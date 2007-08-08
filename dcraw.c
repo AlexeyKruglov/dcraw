@@ -22,7 +22,7 @@
    $Date: 2007/08/01 17:39:28 $
  */
 
-#define VERSION "8.77"
+#define VERSION "8.77.AK2"
 
 #define _GNU_SOURCE
 #define _USE_MATH_DEFINES
@@ -114,7 +114,7 @@ ushort shrink, iheight, iwidth, fuji_width, thumb_width, thumb_height;
 int flip, tiff_flip, colors;
 double pixel_aspect, aber[4]={1,1,1,1};
 ushort (*image)[4], white[8][8], curve[0x1000], cr2_slice[3];
-float bright=1, user_mul[4]={0,0,0,0}, threshold=0;
+float bright=1, _gamma=0, user_mul[4]={0,0,0,0}, threshold=0;
 int half_size=0, four_color_rgb=0, document_mode=0, highlight=0;
 int verbose=0, use_auto_wb=0, use_camera_wb=0, use_camera_matrix=-1;
 int output_color=1, output_bps=8, output_tiff=0;
@@ -206,6 +206,14 @@ struct {
 
 #define BAYER2(row,col) \
 	image[((row) >> shrink)*iwidth + ((col) >> shrink)][fc(row,col)]
+
+int ceillog10(int x) {
+  int r;
+
+  if(x<=0) return 1;
+  r=0; while(x>0) { x/=10; r++; }
+  return r;
+}
 
 int CLASS fc (int row, int col)
 {
@@ -7282,6 +7290,64 @@ quit:
 }
 #endif
 
+void desaturate_color(float * col, float max) { // (c) ~2005-2007 Alexey Kruglov
+  // only for sRGB before gamma-correction
+  float L,x;
+  float a,b;
+  int c;
+  
+  x=0; FORC3 if(x<col[c]) x=col[c];
+  if(x<=max) return;
+  L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
+  if(L>=max) {
+    col[2]=col[1]=col[0]=max;
+    return;
+  }
+  /* now L<max<x */
+  a=(x-max)/(x/L-1); b=(max-a)/x;
+  FORC3 col[c]=(col[c]*b+a);
+}
+
+void desaturate_color8(ushort * col, float max, float gamma) { // (c) ~2005-2007 Alexey Kruglov
+  // correct contrast (gamma-correction) & desaturate color
+  // only for sRGB before gamma-correction
+  float colf[3];
+  float L,x;
+  float a,b;
+  int c;
+  
+  if(gamma!=0.0) {
+    L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
+    if(L>=max) {
+      col[2]=col[1]=col[0]=max;
+      return;
+    }
+
+    a=pow(L/max,gamma);
+    FORC3 colf[c]=a*col[c]; L*=a;
+
+    x=0; FORC3 if(x<colf[c]) x=colf[c];
+    if(x<=max) { FORC3 col[c]=colf[c]; return; }
+
+    /* now L<max<x */
+    a=(x-max)/(x/L-1); b=(max-a)/x;
+    FORC3 col[c]=(colf[c]*b+a);
+  } else {
+    x=0; FORC3 if(x<col[c]) x=col[c];
+    if(x<=max) return;
+
+    L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
+    if(L>=max) {
+      col[2]=col[1]=col[0]=max;
+      return;
+    }
+
+    /* now L<max<x */
+    a=(x-max)/(x/L-1); b=(max-a)/x;
+    FORC3 col[c]=(col[c]*b+a);
+  }
+}
+
 void CLASS convert_to_rgb()
 {
   int row, col, c, i, j, k;
@@ -7382,6 +7448,7 @@ void CLASS convert_to_rgb()
 	  out[1] += out_cam[1][c] * img[c];
 	  out[2] += out_cam[2][c] * img[c];
 	}
+	desaturate_color(out,65535.0);
 	FORC3 img[c] = CLIP((int) out[c]);
       }
       else if (document_mode)
@@ -7650,10 +7717,12 @@ void CLASS write_ppm_tiff (FILE *ofp)
   cstep = flip_index (0, 1) - soff;
   rstep = flip_index (1, 0) - flip_index (0, width);
   for (row=0; row < height; row++, soff += rstep) {
-    for (col=0; col < width; col++, soff += cstep)
+    for (col=0; col < width; col++, soff += cstep) {
+      desaturate_color8(image[soff],65535.0/bright,_gamma);
       if (output_bps == 8)
 	   FORCC ppm [col*colors+c] = lut[image[soff][c]];
       else FORCC ppm2[col*colors+c] =     image[soff][c];
+    }
     if (output_bps == 16 && !output_tiff && htons(0x55aa) != 0x55aa)
       swab (ppm2, ppm2, width*colors*2);
     fwrite (ppm, colors*output_bps/8, width, ofp);
@@ -7701,6 +7770,7 @@ int CLASS main (int argc, char **argv)
     puts(_("+M/-M     Use/don't use an embedded color matrix"));
     puts(_("-C <r b>  Correct chromatic aberration"));
     puts(_("-b <num>  Adjust brightness (default = 1.0)"));
+    puts(_("-g <num>  Adjust contrast (gamma) (default = 1.0)"));
     puts(_("-n <num>  Set threshold for wavelet denoising"));
     puts(_("-k <num>  Set black point"));
     puts(_("-K <file> Subtract dark frame (16-bit raw PGM)"));
@@ -7735,6 +7805,7 @@ int CLASS main (int argc, char **argv)
     switch (opt) {
       case 'n':  threshold   = atof(argv[arg++]);  break;
       case 'b':  bright      = atof(argv[arg++]);  break;
+      case 'g':  _gamma      = atof(argv[arg++])-1;  break;
       case 'r':
 	   FORC4 user_mul[c] = atof(argv[arg++]);  break;
       case 'C':  aber[0] = 1 / atof(argv[arg++]);
@@ -7990,7 +8061,7 @@ thumbnail:
       if ((cp = strrchr (ofname, '.'))) *cp = 0;
       if (multi_out)
 	sprintf (ofname+strlen(ofname), "_%0*d",
-		snprintf(0,0,"%d",is_raw-1), shot_select);
+		ceillog10(is_raw-1), shot_select);
       if (thumbnail_only)
 	strcat (ofname, ".thumb");
       strcat (ofname, write_ext);
