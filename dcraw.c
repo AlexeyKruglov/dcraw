@@ -22,7 +22,7 @@
    $Date: 2007/08/01 17:39:28 $
  */
 
-#define VERSION "8.77.AK2"
+#define VERSION "8.77.AK3"
 
 #define _GNU_SOURCE
 #define _USE_MATH_DEFINES
@@ -7308,7 +7308,7 @@ void desaturate_color(float * col, float max) { // (c) ~2005-2007 Alexey Kruglov
   FORC3 col[c]=(col[c]*b+a);
 }
 
-void desaturate_color8(ushort * col, float max, float gamma) { // (c) ~2005-2007 Alexey Kruglov
+void desaturate_color8(ushort * col, float max, float gamma, float premul) { // (c) ~2005-2007 Alexey Kruglov
   // correct contrast (gamma-correction) & desaturate color
   // only for sRGB before gamma-correction
   float colf[3];
@@ -7317,14 +7317,14 @@ void desaturate_color8(ushort * col, float max, float gamma) { // (c) ~2005-2007
   int c;
   
   if(gamma!=0.0) {
-    L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
+    L=premul*(0.222506*col[0]+0.716887*col[1]+0.060607*col[2]);
     if(L>=max) {
       col[2]=col[1]=col[0]=max;
       return;
     }
 
     a=pow(L/max,gamma);
-    FORC3 colf[c]=a*col[c]; L*=a;
+    FORC3 colf[c]=(premul*a)*col[c]; L*=a;
 
     x=0; FORC3 if(x<colf[c]) x=colf[c];
     if(x<=max) { FORC3 col[c]=colf[c]; return; }
@@ -7333,17 +7333,20 @@ void desaturate_color8(ushort * col, float max, float gamma) { // (c) ~2005-2007
     a=(x-max)/(x/L-1); b=(max-a)/x;
     FORC3 col[c]=(colf[c]*b+a);
   } else {
-    x=0; FORC3 if(x<col[c]) x=col[c];
-    if(x<=max) return;
+    x=0; FORC3 if(x<col[c]) x=col[c]; 
+    if(x<=max/premul) {
+     if(premul!=1) FORC3 col[c]=premul*col[c];
+     return;
+    }
 
     L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
-    if(L>=max) {
+    if(L>=max/premul) {
       col[2]=col[1]=col[0]=max;
       return;
     }
 
-    /* now L<max<x */
-    a=(x-max)/(x/L-1); b=(max-a)/x;
+    /* now L*premul<max<x*premul */
+    a=(x*premul-max)/(x/L-1); b=(max-a)/x;
     FORC3 col[c]=(col[c]*b+a);
   }
 }
@@ -7542,7 +7545,7 @@ int CLASS flip_index (int row, int col)
   return row * iwidth + col;
 }
 
-void CLASS gamma_lut (uchar lut[0x10000])
+void CLASS gamma_lut (uchar lut[0x10000], float* premul, float* maxv)
 {
   int perc, c, val, total, i;
   float white=0, r;
@@ -7555,7 +7558,12 @@ void CLASS gamma_lut (uchar lut[0x10000])
       if ((total += histogram[c][val]) > perc) break;
     if (white < val) white = val;
   }
-  white *= 8 / bright;
+  if (verbose) fprintf (stderr,_("99th percentile white point: %d/65536\n"), val=white*8);
+
+  white *= 8;
+  *premul = bright;
+  *maxv = white;
+
   for (i=0; i < 0x10000; i++) {
     r = i / white;
     val = 256 * ( !use_gamma ? r :
@@ -7692,6 +7700,7 @@ void CLASS write_ppm_tiff (FILE *ofp)
   uchar *ppm, lut[0x10000];
   ushort *ppm2;
   int c, row, col, soff, rstep, cstep;
+  float premul, maxval;
 
   iheight = height;
   iwidth  = width;
@@ -7712,16 +7721,16 @@ void CLASS write_ppm_tiff (FILE *ofp)
     fprintf (ofp, "P%d\n%d %d\n%d\n",
 	colors/2+5, width, height, (1 << output_bps)-1);
 
-  if (output_bps == 8) gamma_lut (lut);
+  if (output_bps == 8) gamma_lut (lut,  &premul, &maxval);
   soff  = flip_index (0, 0);
   cstep = flip_index (0, 1) - soff;
   rstep = flip_index (1, 0) - flip_index (0, width);
   for (row=0; row < height; row++, soff += rstep) {
     for (col=0; col < width; col++, soff += cstep) {
-      desaturate_color8(image[soff],65535.0/bright,_gamma);
-      if (output_bps == 8)
-	   FORCC ppm [col*colors+c] = lut[image[soff][c]];
-      else FORCC ppm2[col*colors+c] =     image[soff][c];
+      if (output_bps == 8) {
+        desaturate_color8(image[soff],maxval-1,_gamma,premul);
+	FORCC ppm [col*colors+c] = lut[image[soff][c]];
+      } else FORCC ppm2[col*colors+c] =     image[soff][c];
     }
     if (output_bps == 16 && !output_tiff && htons(0x55aa) != 0x55aa)
       swab (ppm2, ppm2, width*colors*2);
@@ -7755,7 +7764,7 @@ int CLASS main (int argc, char **argv)
 
   if (argc == 1) {
     printf(_("\nRaw photo decoder \"dcraw\" v%s"), VERSION);
-    printf(_("\nby Dave Coffin, dcoffin a cybercom o net\n"));
+    printf(_("\nby Dave Coffin, dcoffin a cybercom o net\n(modified by Alexey Kruglov)\n"));
     printf(_("\nUsage:  %s [OPTION]... [FILE]...\n\n"), argv[0]);
     puts(_("-v        Print verbose messages"));
     puts(_("-c        Write image data to standard output"));
