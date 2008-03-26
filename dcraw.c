@@ -22,7 +22,7 @@
    $Date: 2007/08/01 17:39:28 $
  */
 
-#define VERSION "8.77.AK3"
+#define VERSION "8.77.AK3.2"
 
 #define _GNU_SOURCE
 #define _USE_MATH_DEFINES
@@ -114,7 +114,7 @@ ushort shrink, iheight, iwidth, fuji_width, thumb_width, thumb_height;
 int flip, tiff_flip, colors;
 double pixel_aspect, aber[4]={1,1,1,1};
 ushort (*image)[4], white[8][8], curve[0x1000], cr2_slice[3];
-float bright=1, _gamma=0, user_mul[4]={0,0,0,0}, threshold=0;
+float bright=1, _gamma=0, _panomode=0, user_mul[4]={0,0,0,0}, threshold=0;
 int half_size=0, four_color_rgb=0, document_mode=0, highlight=0;
 int verbose=0, use_auto_wb=0, use_camera_wb=0, use_camera_matrix=-1;
 int output_color=1, output_bps=8, output_tiff=0;
@@ -7550,17 +7550,21 @@ void CLASS gamma_lut (uchar lut[0x10000], float* premul, float* maxv)
   int perc, c, val, total, i;
   float white=0, r;
 
-  perc = width * height * 0.01;		/* 99th percentile white point */
-  if (fuji_width) perc /= 2;
-  if (highlight && highlight != 2) perc = -1;
-  FORCC {
-    for (val=0x2000, total=0; --val > 32; )
-      if ((total += histogram[c][val]) > perc) break;
-    if (white < val) white = val;
+  if(_panomode == 0) {
+    perc = width * height * 0.01;		/* 99th percentile white point */
+    if (fuji_width) perc /= 2;
+    if (highlight && highlight != 2) perc = -1;
+    FORCC {
+      for (val=0x2000, total=0; --val > 32; )
+        if ((total += histogram[c][val]) > perc) break;
+      if (white < val) white = val;
+    }
+    white *= 8;
+  } else {
+    white=65535*_panomode;
   }
-  if (verbose) fprintf (stderr,_("99th percentile white point: %d/65536\n"), val=white*8);
+  if (verbose) fprintf (stderr,_("99th percentile white point: %d/65536\n"), (int)(white+0.5));
 
-  white *= 8;
   *premul = bright;
   *maxv = white;
 
@@ -7780,6 +7784,7 @@ int CLASS main (int argc, char **argv)
     puts(_("-C <r b>  Correct chromatic aberration"));
     puts(_("-b <num>  Adjust brightness (default = 1.0)"));
     puts(_("-g <num>  Adjust contrast (gamma) (default = 1.0)"));
+    puts(_("-x <num>  \"Panorama mode\": set white point level to <num>"));
     puts(_("-n <num>  Set threshold for wavelet denoising"));
     puts(_("-k <num>  Set black point"));
     puts(_("-K <file> Subtract dark frame (16-bit raw PGM)"));
@@ -7815,6 +7820,7 @@ int CLASS main (int argc, char **argv)
       case 'n':  threshold   = atof(argv[arg++]);  break;
       case 'b':  bright      = atof(argv[arg++]);  break;
       case 'g':  _gamma      = atof(argv[arg++])-1;  break;
+      case 'x':  _panomode   = atof(argv[arg++]);  break;
       case 'r':
 	   FORC4 user_mul[c] = atof(argv[arg++]);  break;
       case 'C':  aber[0] = 1 / atof(argv[arg++]);
