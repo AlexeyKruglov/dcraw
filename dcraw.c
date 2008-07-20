@@ -22,7 +22,7 @@
    $Date: 2007/08/01 17:39:28 $
  */
 
-#define VERSION "8.77.AK3.2"
+#define VERSION "8.77.AK3.3"
 
 #define _GNU_SOURCE
 #define _USE_MATH_DEFINES
@@ -5257,7 +5257,7 @@ void CLASS parse_ciff (int offset, int length)
       fread (artist, 64, 1, ifp);
     if (type == 0x080a) {
       fread (make, 64, 1, ifp);
-      fseek (ifp, strlen(make) - 63, SEEK_CUR);
+      fseek (ifp, (int)strlen(make) - 63, SEEK_CUR);
       fread (model, 64, 1, ifp);
     }
     if (type == 0x1810) {
