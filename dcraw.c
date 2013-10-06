@@ -23,7 +23,7 @@
    $Date: 2013/06/16 18:01:08 $
  */
 
-#define DCRAW_VERSION "9.19"
+#define DCRAW_VERSION "9.19.AK3"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -132,7 +132,7 @@ ushort shrink, iheight, iwidth, fuji_width, thumb_width, thumb_height;
 ushort *raw_image, (*image)[4];
 ushort white[8][8], curve[0x10000], cr2_slice[3], sraw_mul[4];
 double pixel_aspect, aber[4]={1,1,1,1}, gamm[6]={ 0.45,4.5,0,0,0,0 };
-float bright=1, user_mul[4]={0,0,0,0}, threshold=0;
+float bright=1, _gamma=0, _panomode=0, user_mul[4]={0,0,0,0}, threshold=0;
 int mask[8][4];
 int half_size=0, four_color_rgb=0, document_mode=0, highlight=0;
 int verbose=0, use_auto_wb=0, use_camera_wb=0, use_camera_matrix=-1;
@@ -231,6 +231,14 @@ struct ph1 {
 
 #define BAYER2(row,col) \
 	image[((row) >> shrink)*iwidth + ((col) >> shrink)][fcol(row,col)]
+
+int ceillog10(int x) {
+  int r;
+
+  if(x<=0) return 1;
+  r=0; while(x>0) { x/=10; r++; }
+  return r;
+}
 
 int CLASS fcol (int row, int col)
 {
@@ -3615,6 +3623,44 @@ void CLASS gamma_curve (double pwr, double ts, int mode, int imax)
   }
 }
 
+/*  // AK: temporary comment out
+void CLASS gamma_lut (uchar lut[0x10000], float* premul, float* maxv)
+{
+  int perc, c, val, total, i;
+  float white=0, r;
+
+  if(_panomode == 0) {
+    perc = width * height * 0.01;		/* 99th percentile white point * /
+    if (fuji_width) perc /= 2;
+    if (highlight && highlight != 2) perc = -1;
+    FORCC {
+      for (val=0x2000, total=0; --val > 32; )
+        if ((total += histogram[c][val]) > perc) break;
+      if (white < val) white = val;
+    }
+    white *= 8;
+  } else {
+    white=65535*_panomode;
+  }
+  if (verbose) fprintf (stderr,_("99th percentile white point: %d/65536\n"), (int)(white+0.5));
+
+  *premul = bright;
+  *maxv = white;
+
+  for (i=0; i < 0x10000; i++) {
+    r = i / white;
+    val = 256 * ( !use_gamma ? r :
+#ifdef SRGB_GAMMA
+	r <= 0.00304 ? r*12.92 : pow(r,2.5/6)*1.055-0.055 );
+#else
+	r <= 0.018 ? r*4.5 : pow(r,0.45)*1.099-0.099 );
+#endif
+    if (val > 255) val = 255;
+    lut[i] = val;
+  }
+}
+*/
+
 void CLASS pseudoinverse (double (*in)[3], double (*out)[3], int size)
 {
   double work[3][6], num;
@@ -6051,7 +6097,7 @@ void CLASS parse_ciff (int offset, int length, int depth)
       fread (artist, 64, 1, ifp);
     if (type == 0x080a) {
       fread (make, 64, 1, ifp);
-      fseek (ifp, strlen(make) - 63, SEEK_CUR);
+      fseek (ifp, (int)strlen(make) - 63, SEEK_CUR);
       fread (model, 64, 1, ifp);
     }
     if (type == 0x1810) {
@@ -6215,7 +6261,7 @@ void CLASS parse_phase_one (int base)
   fseek (ifp, base, SEEK_SET);
   order = get4() & 0xffff;
   if (get4() >> 8 != 0x526177) return;		/* "Raw" */
-  fseek (ifp, get4()+base, SEEK_SET);
+  fseek (ifp, base+get4(), SEEK_SET);
   entries = get4();
   get4();
   while (entries--) {
@@ -8631,6 +8677,67 @@ quit:
 }
 #endif
 
+void desaturate_color(float * col, float max) { // (c) ~2005-2007 Alexey Kruglov
+  // only for sRGB before gamma-correction
+  float L,x;
+  float a,b;
+  int c;
+  
+  x=0; FORC3 if(x<col[c]) x=col[c];
+  if(x<=max) return;
+  L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
+  if(L>=max) {
+    col[2]=col[1]=col[0]=max;
+    return;
+  }
+  /* now L<max<x */
+  a=(x-max)/(x/L-1); b=(max-a)/x;
+  FORC3 col[c]=(col[c]*b+a);
+}
+
+void desaturate_color8(ushort * col, float max, float gamma, float premul) { // (c) ~2005-2007 Alexey Kruglov
+  // correct contrast (gamma-correction) & desaturate color
+  // only for sRGB before gamma-correction
+  float colf[3];
+  float L,x;
+  float a,b;
+  int c;
+  
+  if(gamma!=0.0) {
+    L=premul*(0.222506*col[0]+0.716887*col[1]+0.060607*col[2]);
+    if(L>=max) {
+      col[2]=col[1]=col[0]=max;
+      return;
+    }
+
+    a=pow(L/max,gamma);
+    FORC3 colf[c]=(premul*a)*col[c]; L*=a;
+
+    x=0; FORC3 if(x<colf[c]) x=colf[c];
+    if(x<=max) { FORC3 col[c]=colf[c]; return; }
+
+    /* now L<max<x */
+    a=(x-max)/(x/L-1); b=(max-a)/x;
+    FORC3 col[c]=(colf[c]*b+a);
+  } else {
+    x=0; FORC3 if(x<col[c]) x=col[c]; 
+    if(x<=max/premul) {
+     if(premul!=1) FORC3 col[c]=premul*col[c];
+     return;
+    }
+
+    L=0.222506*col[0]+0.716887*col[1]+0.060607*col[2];
+    if(L>=max/premul) {
+      col[2]=col[1]=col[0]=max;
+      return;
+    }
+
+    /* now L*premul<max<x*premul */
+    a=(x*premul-max)/(x/L-1); b=(max-a)/x;
+    FORC3 col[c]=(col[c]*b+a);
+  }
+}
+
 void CLASS convert_to_rgb()
 {
   int row, col, c, i, j, k;
@@ -8727,6 +8834,7 @@ void CLASS convert_to_rgb()
 	  out[1] += out_cam[1][c] * img[c];
 	  out[2] += out_cam[2][c] * img[c];
 	}
+	desaturate_color(out,65535.0);
 	FORC3 img[c] = CLIP((int) out[c]);
       }
       else if (document_mode)
@@ -8964,6 +9072,8 @@ void CLASS write_ppm_tiff()
   ushort *ppm2;
   int c, row, col, soff, rstep, cstep;
   int perc, val, total, white=0x2000;
+// AK: temporary comment out the temporarily unused variables
+//  float premul, maxval;
 
   perc = width * height * 0.01;		/* 99th percentile white level */
   if (fuji_width) perc /= 2;
@@ -8992,14 +9102,18 @@ void CLASS write_ppm_tiff()
   else
     fprintf (ofp, "P%d\n%d %d\n%d\n",
 	colors/2+5, width, height, (1 << output_bps)-1);
+// AK: tamporary comment out
+//  if (output_bps == 8) gamma_lut (lut,  &premul, &maxval);
   soff  = flip_index (0, 0);
   cstep = flip_index (0, 1) - soff;
   rstep = flip_index (1, 0) - flip_index (0, width);
   for (row=0; row < height; row++, soff += rstep) {
     for (col=0; col < width; col++, soff += cstep)
-      if (output_bps == 8)
-	   FORCC ppm [col*colors+c] = curve[image[soff][c]] >> 8;
-      else FORCC ppm2[col*colors+c] = curve[image[soff][c]];
+      if (output_bps == 8) {
+// AK: temporary comment out
+//	desaturate_color8(image[soff],maxval-1,_gamma,premul);
+	FORCC ppm [col*colors+c] = curve[image[soff][c]] >> 8;
+      } else FORCC ppm2[col*colors+c] = curve[image[soff][c]];
     if (output_bps == 16 && !output_tiff && htons(0x55aa) != 0x55aa)
       swab (ppm2, ppm2, width*colors*2);
     fwrite (ppm, colors*output_bps/8, width, ofp);
@@ -9032,7 +9146,7 @@ int CLASS main (int argc, const char **argv)
 
   if (argc == 1) {
     printf(_("\nRaw photo decoder \"dcraw\" v%s"), DCRAW_VERSION);
-    printf(_("\nby Dave Coffin, dcoffin a cybercom o net\n"));
+    printf(_("\nby Dave Coffin, dcoffin a cybercom o net\n(modified by Alexey Kruglov)\n"));
     printf(_("\nUsage:  %s [OPTION]... [FILE]...\n\n"), argv[0]);
     puts(_("-v        Print verbose messages"));
     puts(_("-c        Write image data to standard output"));
@@ -9064,6 +9178,9 @@ int CLASS main (int argc, const char **argv)
     puts(_("-W        Don't automatically brighten the image"));
     puts(_("-b <num>  Adjust brightness (default = 1.0)"));
     puts(_("-g <p ts> Set custom gamma curve (default = 2.222 4.5)"));
+// AK: temporary comment out
+//    puts(_("-g <num>  Adjust contrast (gamma) (default = 1.0)"));
+    puts(_("-x <num>  \"Panorama mode\": set white point level to <num>"));
     puts(_("-q [0-3]  Set the interpolation quality"));
     puts(_("-h        Half-size color image (twice as fast as \"-q 0\")"));
     puts(_("-f        Interpolate RGGB as four colors"));
@@ -9087,6 +9204,8 @@ int CLASS main (int argc, const char **argv)
     switch (opt) {
       case 'n':  threshold   = atof(argv[arg++]);  break;
       case 'b':  bright      = atof(argv[arg++]);  break;
+      case 'g':  _gamma      = atof(argv[arg++])-1;  break;
+      case 'x':  _panomode   = atof(argv[arg++]);  break;
       case 'r':
 	   FORC4 user_mul[c] = atof(argv[arg++]);  break;
       case 'C':  aber[0] = 1 / atof(argv[arg++]);
@@ -9394,7 +9513,7 @@ thumbnail:
       if ((cp = strrchr (ofname, '.'))) *cp = 0;
       if (multi_out)
 	sprintf (ofname+strlen(ofname), "_%0*d",
-		snprintf(0,0,"%d",is_raw-1), shot_select);
+		ceillog10(is_raw-1), shot_select);
       if (thumbnail_only)
 	strcat (ofname, ".thumb");
       strcat (ofname, write_ext);
