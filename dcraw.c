@@ -9180,7 +9180,7 @@ int CLASS main (int argc, const char **argv)
     puts(_("-g <p ts> Set custom gamma curve (default = 2.222 4.5)"));
 // AK: temporary comment out
 //    puts(_("-g <num>  Adjust contrast (gamma) (default = 1.0)"));
-    puts(_("-x <num>  \"Panorama mode\": set white point level to <num>"));
+//    puts(_("-x <num>  \"Panorama mode\": set white point level to <num>"));
     puts(_("-q [0-3]  Set the interpolation quality"));
     puts(_("-h        Half-size color image (twice as fast as \"-q 0\")"));
     puts(_("-f        Interpolate RGGB as four colors"));
@@ -9204,8 +9204,9 @@ int CLASS main (int argc, const char **argv)
     switch (opt) {
       case 'n':  threshold   = atof(argv[arg++]);  break;
       case 'b':  bright      = atof(argv[arg++]);  break;
-      case 'g':  _gamma      = atof(argv[arg++])-1;  break;
-      case 'x':  _panomode   = atof(argv[arg++]);  break;
+// AK: temporary comment out
+//      case 'g':  _gamma      = atof(argv[arg++])-1;  break;
+      case 'x':  _panomode   = atof(argv[arg++]);  break; // AK: Not sure this works!!!
       case 'r':
 	   FORC4 user_mul[c] = atof(argv[arg++]);  break;
       case 'C':  aber[0] = 1 / atof(argv[arg++]);
